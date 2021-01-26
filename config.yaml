@@ -1,0 +1,63 @@
+baseURL: https://edperalt.netlify.app
+languageCode: en
+DefaultContentLanguage: en
+title: Website of Edmundo
+theme: anatole
+summarylength: 10
+enableEmoji: yes
+enableRobotsTXT: yes
+pygmentsUseClasses: yes
+pygmentsCodeFences: yes
+pygmentsCodefencesGuessSyntax: yes
+params:
+  author: Edmundo Peralta
+  customCss: []
+  customJs: []
+  description: Husband father of threeboys and a swimmer 
+  doNotLoadAnimations: no
+  favicon: favicons/
+  images: images/site-feature-image.png
+  keywords: ''
+  mainSections: post
+  math:
+    enable: no
+    use: katex
+  profilePicture: images/profile.jpg
+  simpleAnalytics: {}
+  socialIcons:
+    - icon: fab fa-linkedin
+      title: Linkedin
+      url: https://www.linkedin.com/in/edmundo-peralta-23469212/
+    - icon: fab fa-github
+      title: GitHub
+      url: https://github.com/edperalt
+    - icon: fab fa-instagram
+      title: instagram
+      url: https://www.instagram.com/edperalt/
+    - icon: fas fa-envelope
+      title: e-mail
+      url: mailto:edperalt@gmail.com
+  title: Edmundo Peralta
+menu:
+  main:
+    - identifier: home
+      name: Home
+      url: /
+      weight: 100
+    - identifier: posts
+      name: Posts
+      url: /post/
+      weight: 200
+    - identifier: about
+      name: About
+      url: /about/
+      weight: 300
+    - identifier: contact
+      name: Contact
+      url: /contact/
+      weight: 400
+
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
