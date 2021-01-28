@@ -36,7 +36,7 @@ DisableComments: no
 ## Vamos a responder algunas preguntas  
 
 <br>
-Spotify nos permite analizar a través de su [API](https://developer.spotify.com/documentation/web-api/reference/tracks/get-audio-features/) varias medidas asociadas a cada canción. Nuestro reto los vamos a realizar comparando las diferentes métricas y utilizando el paquete [spotifyr](https://github.com/charlie86/spotifyr/).
+Spotify nos permite analizar a través de su  API  varias medidas asociadas a cada canción. Nuestro reto los vamos a realizar comparando las diferentes métricas y utilizando el paquete  spotifyr.
 <br>
 
 - Quien es el verdadero audiófilo retro ??
