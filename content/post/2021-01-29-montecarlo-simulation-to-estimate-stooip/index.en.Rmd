@@ -1,0 +1,915 @@
+---
+title: Montecarlo simulation to estimate STOOIP
+author: Edmundo Peralta
+date: '2021-01-29'
+slug: []
+categories:
+  - R
+tags:
+  - stooip
+  - porosity
+  - uncertainty
+Description: ''
+Tags: []
+Categories: []
+DisableComments: no
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+
+library(tidyverse)
+library(gridExtra)
+
+set.seed(456)
+
+```
+
+![swimming with friends](open_water_friends.JPG)
+
+## Description  
+In this excercise we want to  have a qualitative feel of the performance we can obtain using a Montecarlo simulation to estimate the **STOOIP** on a theoretical field. We will assume two extreme examples:  
+
+* *Dataset 1* will have 100 samples for each parameter  
+* *Dataset 2* will have a million samples for each parameter   
+
+In both cases we will explore the resulting distribution of Stooip and compare visually the estimation of P10, P50 and P90 running simulations that vary from 100 to a million simulations.
+
+I will be using the followiing R packages:  
+
++ [tidyverse](https://www.tidyverse.org/ ), to perform data preparation
++ [gridExtra](https://cran.r-project.org/package=gridExtra) to organize multiple plot outputs.
+
+<br>  
+
+
+### STOOIP definition
+
+
+
+The **STOOIP** is estimated in MM bbls with the following formula:
+
+$$ STOOIP = Area * Thickness * Porosity * ( 1 - Sw ) / Bo * Ct $$  
+
+where:  
+
++ **Area** in Km2
++ **Thickness** in meters
++ **Porosity** in fraction
++ **Water Saturation** in fraction
++ **Bo**  is unitless
++ **Ct** is a constant of 6.28 to obtains mmbbls as final unit for **STOOIP**  
+
+**Note**: I  have set a seed at the beginning of the code to allow for reproducibility, changing this values we can compare and realize how stable are the simulations when using different entry values.
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+df_sample <- 1e2    # 100 samples to start
+```
+
+
+
+```{r area_a, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+min_area <- 5
+max_area <- 12
+
+
+## 
+df <- 
+  data.frame(area = runif( df_sample, min_area, max_area)) # Area , as uniform distributio between 5 and 12 km2
+  
+  
+area_a<-                ## the plots with suffix a will be the ones with the small distribution
+  ggplot(df, aes(area))+
+  geom_histogram(fill = "grey", bins = 10) +
+  labs(x = "Area km2",
+       y = "",
+       title = "100 samples ")+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank())+
+  scale_x_continuous(limits = c(0,15))+
+  theme_minimal()
+  
+
+  # area_a
+
+
+```
+
+
+
+
+```{r thickness_a, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+## thickness
+min_thk <- 8
+max_thk <- 17
+
+df$thk  <-  runif(df_sample, min_thk, max_thk)  # thickness between 8 and 17 meters
+  
+  
+thk_a<-
+  ggplot(df, aes(thk))+
+  geom_histogram(fill = "grey", bins = 10) +
+  labs(x = paste0("Thickness in meters")  ,
+       y = "",
+       title = "100 samples")+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank()) +
+   scale_x_continuous(limits = c(5,20)) +
+  theme_minimal()
+
+# thk_a
+
+```
+
+
+
+
+
+```{r poro_a, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+## Porosity
+mean_poro <- 0.2
+sd_poro   <- 0.03
+
+df$poro  <- rnorm(df_sample, mean_poro, sd_poro)  # porositymean 20% and std 3%
+  
+  
+poro_a<-
+  ggplot(df, aes(poro))+
+  geom_histogram(fill = "grey", bins = 10) +
+  labs(x = paste0("Porosity in fraction"),
+       y = "",
+       title = "100 samples")+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank())+
+  scale_x_continuous(limits = c(0.05, 0.3),
+                     breaks = seq(0.05, 0.3, 0.05),
+                     labels = seq(0.05, 0.3, 0.05))+
+  theme_minimal()
+# poro_a
+
+```
+
+
+
+
+```{r sw_a, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+mean_sw <- 0.22
+sd_sw   <- 0.04
+
+df$sw  <- rnorm(df_sample, mean_sw, sd_sw)  # sw with a gaussian distribution with  mean of 22% and std of 4%
+  
+df<- df %>% mutate(sw = ifelse( sw < 0 , 0 ,  sw ) )
+  
+sw_a<-ggplot(df, aes(sw))+
+  geom_histogram(fill = "grey", bins = 10) +
+  labs(x = paste0("Water Saturation in fraction") ,
+       y = "",
+       title = "100 samples")+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank())+
+  scale_x_continuous(limits = c(0.05, 0.35),
+                     breaks = seq(0.1, 0.35, 0.05),
+                     labels = seq(0.1, 0.35, 0.05)) +
+  theme_minimal()
+# sw_a
+
+
+```
+
+
+```{r bo_a, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+mean_bo <- 1.07
+sd_bo   <- 0.02
+df$bo  <- rnorm(df_sample, mean_bo, sd_bo)  #  bo as a  normal distribution with a mean of 0.07 and a std of 0.02
+  
+  
+bo_a<-ggplot(df, aes(bo))+
+  geom_histogram(fill = "grey", bins = 10) +
+  labs(x = paste0("Bo") ,
+       y = "",
+       title = "100 samples")+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank())+
+  scale_x_continuous(limits = c(1, 1.12),
+                     # breaks = seq(0.1, 0.35, 0.05),
+                     # labels = seq(0.1, 0.35, 0.05)
+                     )
+
+# bo_a
+
+
+```
+
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mc_samples_a <- 1e2
+```
+
+
+
+```{r montecarlo_a, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+
+mc_stooip <- data.frame(id = seq(1 , mc_samples_a  ))
+
+mc_stooip$area <- sample(df$area, size = mc_samples_a, replace = TRUE)
+mc_stooip$thk  <- sample(df$thk,  size = mc_samples_a, replace = TRUE)
+mc_stooip$poro <- sample(df$poro, size = mc_samples_a, replace = TRUE)
+mc_stooip$sw   <- sample(df$sw,   size = mc_samples_a, replace = TRUE)
+mc_stooip$bo   <- sample(df$bo,   size = mc_samples_a, replace = TRUE)
+
+mc_stooip <- 
+  mc_stooip %>%
+    mutate(stooip = area *
+             1e6 *        # to get to meters
+             thk *
+             6.28 *       # transform into bbls
+             poro *
+             (1-sw) /
+             bo
+             )
+
+
+stooip_1e2_a<-
+ggplot(mc_stooip, aes(stooip/1e6))+
+  geom_histogram()+
+  geom_vline( xintercept = quantile(mc_stooip$stooip,probs = seq(0.1, 0.9, 0.4))/1e6, color = c("blue","red", "blue" ))+
+  scale_x_continuous(breaks = seq(0, 250, 10) ,
+                     limits =   c(0, 250 ) ) +
+  labs(x= " STOIIP MM bbls",
+       title = "100 simulations from 100 samples")+
+  theme_minimal()
+
+
+```
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mc_samples_a <- 1e3
+```
+
+
+
+```{r echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+mc_stooip <- data.frame(id = seq(1 , mc_samples_a  ))
+
+mc_stooip$area <- sample(df$area, size = mc_samples_a, replace = TRUE)
+mc_stooip$thk  <- sample(df$thk,  size = mc_samples_a, replace = TRUE)
+mc_stooip$poro <- sample(df$poro, size = mc_samples_a, replace = TRUE)
+mc_stooip$sw   <- sample(df$sw,   size = mc_samples_a, replace = TRUE)
+mc_stooip$bo   <- sample(df$bo,   size = mc_samples_a, replace = TRUE)
+
+mc_stooip <- 
+  mc_stooip %>%
+    mutate(stooip = area *
+             1e6 *        # to get to meters
+             thk *
+             6.28 *       # transform into bbls
+             poro *
+             (1-sw) /
+             bo
+             )
+
+stooip_1e3_a<-
+ggplot(mc_stooip, aes(stooip/1e6))+
+  geom_histogram()+
+  geom_vline( xintercept = quantile(mc_stooip$stooip,probs = seq(0.1, 0.9, 0.4))/1e6, color = c("blue","red", "blue" ))+
+  scale_x_continuous(breaks = seq(0, 250, 10) ,
+                     limits =   c(0, 250 ) ) +
+  labs(x= " STOIIP MM bbls",
+       title = "1,000 simulations from 100 samples")+
+  theme_minimal()
+
+
+```
+
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mc_samples_a <- 1e4
+```
+
+
+
+```{r echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+
+mc_stooip <- data.frame(id = seq(1 , mc_samples_a  ))
+
+mc_stooip$area <- sample(df$area, size = mc_samples_a, replace = TRUE)
+mc_stooip$thk  <- sample(df$thk,  size = mc_samples_a, replace = TRUE)
+mc_stooip$poro <- sample(df$poro, size = mc_samples_a, replace = TRUE)
+mc_stooip$sw   <- sample(df$sw,   size = mc_samples_a, replace = TRUE)
+mc_stooip$bo   <- sample(df$bo,   size = mc_samples_a, replace = TRUE)
+
+mc_stooip <- 
+  mc_stooip %>%
+    mutate(stooip = area *
+             1e6 *        # to get to meters
+             thk *
+             6.28 *       # transform into bbls
+             poro *
+             (1-sw) /
+             bo
+             )
+
+stooip_1e4_a<-
+ggplot(mc_stooip, aes(stooip/1e6))+
+  geom_histogram()+
+  geom_vline( xintercept = quantile(mc_stooip$stooip,probs = c(0.1, 0.5, 0.9))/1e6, color = c("blue","red", "blue" ))+
+  scale_x_continuous(breaks = seq(0, 250, 10) ,
+                     limits =   c(0, 250 ) ) +
+  labs(x= " STOIIP MM bbls",
+       title = "10,000 simulations from 100 samples")+
+  theme_minimal()
+
+
+```
+
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mc_samples <- 1e5
+```
+
+
+
+
+
+
+```{r echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+mc_stooip <- data.frame(id = seq(1 , mc_samples_a  ))
+
+mc_stooip$area <- sample(df$area, size = mc_samples_a, replace = TRUE)
+mc_stooip$thk  <- sample(df$thk,  size = mc_samples_a, replace = TRUE)
+mc_stooip$poro <- sample(df$poro, size = mc_samples_a, replace = TRUE)
+mc_stooip$sw   <- sample(df$sw,   size = mc_samples_a, replace = TRUE)
+mc_stooip$bo   <- sample(df$bo,   size = mc_samples_a, replace = TRUE)
+
+mc_stooip <- 
+  mc_stooip %>%
+    mutate(stooip = area *
+             1e6 *        # to get to meters
+             thk *
+             6.28 *       # transform into bbls
+             poro *
+             (1-sw) /
+             bo
+             )
+
+stooip_1e5_a<-
+ggplot(mc_stooip, aes(stooip/1e6))+
+  geom_histogram()+
+  geom_vline( xintercept = quantile(mc_stooip$stooip,probs = seq(0.1, 0.9, 0.4))/1e6, color = c("blue","red", "blue" ))+
+  scale_x_continuous(breaks = seq(0, 250, 10) ,
+                     limits =   c(0, 250 ) ) +
+  labs(x= " STOIIP MM bbls",
+       title = "100,000 simulations from 100 samples")+
+  theme_minimal()
+
+
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mc_samples_a <- 1e6
+```
+
+
+
+
+
+
+```{r echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+
+mc_stooip <- data.frame(id = seq(1 , mc_samples_a  ))
+
+mc_stooip$area <- sample(df$area, size = mc_samples_a, replace = TRUE)
+mc_stooip$thk  <- sample(df$thk,  size = mc_samples_a, replace = TRUE)
+mc_stooip$poro <- sample(df$poro, size = mc_samples_a, replace = TRUE)
+mc_stooip$sw   <- sample(df$sw,   size = mc_samples_a, replace = TRUE)
+mc_stooip$bo   <- sample(df$bo,   size = mc_samples_a, replace = TRUE)
+
+mc_stooip <- 
+  mc_stooip %>%
+    mutate(stooip = area *
+             1e6 *        # to get to meters
+             thk *
+             6.28 *       # transform into bbls
+             poro *
+             (1-sw) /
+             bo
+             )
+
+stooip_1e6_a<-
+ggplot(mc_stooip, aes(stooip/1e6))+
+  geom_histogram()+
+  geom_vline( xintercept = quantile(mc_stooip$stooip,probs = seq(0.1, 0.9, 0.4))/1e6, color = c("blue","red", "blue" ))+
+  scale_x_continuous(breaks = seq(0, 250, 10) ,
+                     limits =   c(0, 250 ) ) +
+  labs(x= " STOIIP MM bbls",
+       title = "1,000,000 simulations from 100 samples")+
+  theme_minimal()
+
+
+```
+
+
+
+```{r number of samples 2nd analysis, message=FALSE, warning=FALSE, include=FALSE}
+df_sample_b <- 1e6
+```
+
+
+
+```{r Area 2, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+
+df_b <- 
+  data.frame(area = runif( df_sample_b, min_area, max_area)) 
+  
+area_b<-  
+  ggplot(df_b, aes(area)) +
+    geom_histogram(fill = "grey", bins = 20) +
+    labs(x = paste0("Area"),
+         y = "",
+         title = "1,000,000 samples") +
+
+    theme_minimal() +
+    theme(panel.grid.major.x = element_blank(),
+          panel.grid.minor.y = element_blank() ) + 
+  scale_x_continuous(limits = c(0,15))
+  
+  
+
+
+# area_b
+
+```
+
+
+```{r  thickness_2, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+df_b$thk  <-  runif(df_sample_b, min_thk, max_thk)
+  
+ thk_b<- 
+  ggplot(df_b, aes(thk))+
+    geom_histogram(fill = "grey", bins = 20) +
+    labs(x = paste0("Thickness in meters")  ,
+         y = "",
+        title = "1,000,000 samples")+
+    theme_minimal()+
+    theme(panel.grid.major.x = element_blank(),
+          panel.grid.minor.y = element_blank())+
+    scale_x_continuous(limits = c(5,20))
+
+
+```
+
+ 
+
+
+```{r poro_b, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+df_b$poro  <- rnorm(df_sample_b, 0.2, 0.03)
+
+poro_b<-
+  ggplot(df_b, aes(poro))+
+    geom_histogram(fill = "grey", bins = 30) +
+    labs(x = paste0("Porosity in fraction" ),
+         y = "",
+         title = "1,000,000 samples")+
+    theme_minimal()+
+    theme(panel.grid.major.x = element_blank(),
+          panel.grid.minor.y = element_blank())+
+    scale_x_continuous(limits = c(0.05, 0.3),
+                       breaks = seq(0.05, 0.3, 0.05),
+                       labels = seq(0.05, 0.3, 0.05))
+
+
+```
+
+
+
+
+```{r echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+df_b$sw  <- rnorm(df_sample_b, mean_sw, sd_sw)
+  
+df_b<- df_b %>% mutate(sw = ifelse( sw < 0 , 0 ,  sw ) )
+ 
+sw_b<- 
+    ggplot(df_b, aes(sw))+
+      geom_histogram(fill = "grey", bins = 30) +
+      labs(x =  paste0("Water Saturation in fraction"),
+           y = "",
+         title = "1,000,000 samples")+
+      theme_minimal()+
+      theme(panel.grid.major.x = element_blank(),
+            panel.grid.minor.y = element_blank())+
+      scale_x_continuous(limits = c(0.05, 0.35),
+                         breaks = seq(0.1, 0.35, 0.05),
+                         labels = seq(0.1, 0.35, 0.05))
+    
+
+
+```
+
+
+```{r bo_b, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+df_b$bo  <- rnorm(df_sample_b, mean_bo, sd_bo)
+  
+  
+ bo_b <-
+  ggplot(df_b, aes(bo))+
+  geom_histogram(fill = "grey", bins = 30) +
+  labs(x = paste0("Bo") ,
+       y = "",
+         title = "1,000,000 samples")+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank())+
+  scale_x_continuous(limits = c(1, 1.12),
+                     # breaks = seq(0.1, 0.35, 0.05),
+                     # labels = seq(0.1, 0.35, 0.05)
+                     )
+
+
+```
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mc_samples_b <- 1e2
+```
+
+
+
+```{r montecarlo_b, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+
+mc_stooip_b <- data.frame(id = seq(1 , mc_samples_b  ))
+
+mc_stooip_b$area <- sample(df_b$area, size = mc_samples_b, replace = TRUE)
+mc_stooip_b$thk  <- sample(df_b$thk,  size = mc_samples_b, replace = TRUE)
+mc_stooip_b$poro <- sample(df_b$poro, size = mc_samples_b, replace = TRUE)
+mc_stooip_b$sw   <- sample(df_b$sw,   size = mc_samples_b, replace = TRUE)
+mc_stooip_b$bo   <- sample(df_b$bo,   size = mc_samples_b, replace = TRUE)
+
+mc_stooip_b <- 
+  mc_stooip_b %>%
+    mutate(stooip = area *
+             1e6 *        # to get to meters
+             thk *
+             6.28 *       # transform into bbls
+             poro *
+             (1-sw) /
+             bo
+             )
+
+ stooip_1e2_b<-
+    ggplot(mc_stooip_b, aes(stooip/1e6))+
+      geom_histogram()+
+      geom_vline( xintercept = quantile(mc_stooip_b$stooip,probs = seq(0.1, 0.9, 0.4))/1e6, color = c("blue","red", "blue" ))+
+  scale_x_continuous(breaks = seq(0, 250, 10) ,
+                     limits =   c(0, 250 ) ) +
+      labs(x= " STOIIP MM bbls",
+           title = "100 simulations from 1,000,000 samples")+
+   theme_minimal()
+
+
+```
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mc_samples_b <- 1e3
+```
+
+
+
+```{r echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+
+
+
+mc_stooip_b <- data.frame(id = seq(1 , mc_samples_b  ))
+
+mc_stooip_b$area <- sample(df_b$area, size = mc_samples_b, replace = TRUE)
+mc_stooip_b$thk  <- sample(df_b$thk,  size = mc_samples_b, replace = TRUE)
+mc_stooip_b$poro <- sample(df_b$poro, size = mc_samples_b, replace = TRUE)
+mc_stooip_b$sw   <- sample(df_b$sw,   size = mc_samples_b, replace = TRUE)
+mc_stooip_b$bo   <- sample(df_b$bo,   size = mc_samples_b, replace = TRUE)
+
+mc_stooip_b <- 
+  mc_stooip_b %>%
+    mutate(stooip = area *
+             1e6 *        # to get to meters
+             thk *
+             6.28 *       # transform into bbls
+             poro *
+             (1-sw) /
+             bo
+             )
+
+ stooip_1e3_b<-
+    ggplot(mc_stooip_b, aes(stooip/1e6))+
+      geom_histogram()+
+      geom_vline( xintercept = quantile(mc_stooip_b$stooip,probs = seq(0.1, 0.9, 0.4))/1e6, color = c("blue","red", "blue" ))+
+      scale_x_continuous(breaks = seq(0,250, 10))+  scale_x_continuous(breaks = seq(0, 250, 10) ,
+                     limits =   c(0, 250 ) ) +      labs(x= " STOIIP MM bbls",
+           title = "1,000 simulations from 1,000,000 samples")+
+   theme_minimal()
+
+
+```
+
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mc_samples_b <- 1e4
+```
+
+
+
+
+```{r stooip_b_1e4, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+
+
+mc_stooip_b <- data.frame(id = seq(1 , mc_samples_b  ))
+
+mc_stooip_b$area <- sample(df_b$area, size = mc_samples_b, replace = TRUE)
+mc_stooip_b$thk  <- sample(df_b$thk,  size = mc_samples_b, replace = TRUE)
+mc_stooip_b$poro <- sample(df_b$poro, size = mc_samples_b, replace = TRUE)
+mc_stooip_b$sw   <- sample(df_b$sw,   size = mc_samples_b, replace = TRUE)
+mc_stooip_b$bo   <- sample(df_b$bo,   size = mc_samples_b, replace = TRUE)
+
+mc_stooip_b <- 
+  mc_stooip_b %>%
+    mutate(stooip = area *
+             1e6 *        # to get to meters
+             thk *
+             6.28 *       # transform into bbls
+             poro *
+             (1-sw) /
+             bo
+             )
+
+stooip_1e4_b<-
+    ggplot(mc_stooip_b, aes(stooip/1e6))+
+      geom_histogram()+
+      geom_vline( xintercept = quantile(mc_stooip_b$stooip,probs = seq(0.1, 0.9, 0.4))/1e6, color = c("blue","red", "blue" ))+
+     scale_x_continuous(breaks = seq(0, 250, 10) ,
+                        limits =   c(0, 250 ) ) +
+      labs(x= " STOIIP MM bbls",
+           title = "10,000 simulations from 1,000,000 samples")+
+  theme_minimal()
+
+
+```
+
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mc_samples_b <- 1e5
+```
+
+
+
+
+
+
+```{r stooip_1e5_b, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+
+
+mc_stooip_b <- data.frame(id = seq(1 , mc_samples_b  ))
+
+mc_stooip_b$area <- sample(df_b$area, size = mc_samples_b, replace = TRUE)
+mc_stooip_b$thk  <- sample(df_b$thk,  size = mc_samples_b, replace = TRUE)
+mc_stooip_b$poro <- sample(df_b$poro, size = mc_samples_b, replace = TRUE)
+mc_stooip_b$sw   <- sample(df_b$sw,   size = mc_samples_b, replace = TRUE)
+mc_stooip_b$bo   <- sample(df_b$bo,   size = mc_samples_b, replace = TRUE)
+
+mc_stooip_b <- 
+  mc_stooip_b %>%
+    mutate(stooip = area *
+             1e6 *        # to get to meters
+             thk *
+             6.28 *       # transform into bbls
+             poro *
+             (1-sw) /
+             bo
+             )
+
+stooip_1e5_b<-
+    ggplot(mc_stooip_b, aes(stooip/1e6))+
+      geom_histogram()+
+      geom_vline( xintercept = quantile(mc_stooip_b$stooip,probs = seq(0.1, 0.9, 0.4))/1e6, color = c("blue","red", "blue" ))+
+        scale_x_continuous(breaks = seq(0, 250, 10) ,
+                     limits =   c(0, 250 ) ) +
+      labs(x= " STOIIP MM bbls",
+           title = "100,000 simulations from 1,000,000 samples")+
+  theme_minimal()
+
+
+```
+
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+mc_samples_b <- 1e6
+```
+
+
+
+
+
+```{r stooip_1e6_b, echo=FALSE, fig.height=2.5, fig.width=6, message=FALSE, warning=FALSE}
+
+
+
+
+mc_stooip_b <- data.frame(id = seq(1 , mc_samples_b  ))
+
+mc_stooip_b$area <- sample(df_b$area, size = mc_samples_b, replace = TRUE)
+mc_stooip_b$thk  <- sample(df_b$thk,  size = mc_samples_b, replace = TRUE)
+mc_stooip_b$poro <- sample(df_b$poro, size = mc_samples_b, replace = TRUE)
+mc_stooip_b$sw   <- sample(df_b$sw,   size = mc_samples_b, replace = TRUE)
+mc_stooip_b$bo   <- sample(df_b$bo,   size = mc_samples_b, replace = TRUE)
+
+mc_stooip_b <- 
+  mc_stooip_b %>%
+    mutate(stooip = area *
+             1e6 *        # to get to meters
+             thk *
+             6.28 *       # transform into bbls
+             poro *
+             (1-sw) /
+             bo
+             )
+
+stooip_1e6_b<-
+    ggplot(mc_stooip_b, aes(stooip/1e6))+
+      geom_histogram()+
+      geom_vline( xintercept = quantile(mc_stooip_b$stooip,probs = seq(0.1, 0.9, 0.4))/1e6, color = c("blue","red", "blue" ))+
+        scale_x_continuous(breaks = seq(0, 250, 10) ,
+                     limits =   c(0, 250 ) ) +
+      labs(x= " STOIIP MM bbls",
+           title = "1,000,000 simulations from 1,000,000 samples")+
+  theme_minimal()
+
+
+```
+<br>  
+
+## Distributions used
+
+### Area
+
+The area has been  set as an uniform distribution between `r min_area`  and `r max_area` km^2^.    
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+grid.arrange(area_a, area_b)
+```
+
+### Thickness
+
+
+Thickness is defined as a uniform distribution between `r min_thk` and `r max_thk` meters
+
+```{r  warning=FALSE, message=FALSE, echo=FALSE}
+
+grid.arrange(thk_a, thk_b)
+
+
+```
+
+### Porosity
+
+Porosity distribution is normal with a mean of `r mean_poro` and `r sd_poro` standard deviation.  
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+grid.arrange(poro_a, poro_b)
+```
+
+
+### Water saturation
+
+Water saturation distribution is normal with a mean of `r mean_sw` and `r sd_sw` standard deviation.  
+
+```{r  warning=FALSE, message=FALSE, echo=FALSE}
+
+grid.arrange(sw_a, sw_b)
+```
+
+
+### Bo
+
+Bo distribution is normal with a mean of `r mean_bo` and `r sd_bo` standard deviation.  
+
+
+```{r warning=FALSE, message=FALSE,echo=FALSE}
+grid.arrange(bo_a, bo_b)
+```
+
+## Montecarlo simulations 
+
+All **STOOIP** histograms resulting from the simulation have 3 colored lines, two **<span style="color:blue"> Blue </span>** lines represent **P10** and **P90** and the **<span style="color:Red"> Red </span>** line the **P50**.
+
+###  100 simulations
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+
+grid.arrange(stooip_1e2_a, stooip_1e2_b)
+
+
+```
+
+
+### 1,000 simulations
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+
+grid.arrange(stooip_1e3_a, stooip_1e3_b)
+
+
+```
+
+
+### 10,000 simulations
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+
+grid.arrange(stooip_1e4_a, stooip_1e4_b)
+
+
+```
+
+
+
+
+###  100,000 simulations
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+
+grid.arrange(stooip_1e5_a, stooip_1e5_b)
+
+
+```
+
+
+
+
+
+###  1,000,000 simulations
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+
+grid.arrange(stooip_1e6_a, stooip_1e6_b)
+
+
+```
+
+
+## Conclusions
+
+There are many conclusions to be made here, however I´will focus on the oints that normally affect my work.  
+
+- outliers or *min* and *max* values are very conditioned by the sample size, as in general in random populations we have a very small chance of capture the entire range, and this is very evident on these examples. 
+- the probabilities P10, P50 and P90  stabilize very early on, even with the small dataset. As usual what is good will depend on the impact this estimations will have on future decisions. 
+
+
+
+
+

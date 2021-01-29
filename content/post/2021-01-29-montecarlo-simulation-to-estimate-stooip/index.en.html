@@ -1,0 +1,116 @@
+---
+title: Montecarlo simulation to estimate STOOIP
+author: Edmundo Peralta
+date: '2021-01-29'
+slug: []
+categories:
+  - R
+tags:
+  - stooip
+  - porosity
+  - uncertainty
+Description: ''
+Tags: []
+Categories: []
+DisableComments: no
+---
+
+<script src="{{< blogdown/postref >}}index.en_files/header-attrs/header-attrs.js"></script>
+
+
+<div class="figure">
+<img src="open_water_friends.JPG" alt="" />
+<p class="caption">swimming with friends</p>
+</div>
+<div id="description" class="section level2">
+<h2>Description</h2>
+<p>In this excercise we want to have a qualitative feel of the performance we can obtain using a Montecarlo simulation to estimate the <strong>STOOIP</strong> on a theoretical field. We will assume two extreme examples:</p>
+<ul>
+<li><em>Dataset 1</em> will have 100 samples for each parameter<br />
+</li>
+<li><em>Dataset 2</em> will have a million samples for each parameter</li>
+</ul>
+<p>In both cases we will explore the resulting distribution of Stooip and compare visually the estimation of P10, P50 and P90 running simulations that vary from 100 to a million simulations.</p>
+<p>I will be using the followiing R packages:</p>
+<ul>
+<li><a href="https://www.tidyverse.org/">tidyverse</a>, to perform data preparation</li>
+<li><a href="https://cran.r-project.org/package=gridExtra">gridExtra</a> to organize multiple plot outputs.</li>
+</ul>
+<p><br></p>
+<div id="stooip-definition" class="section level3">
+<h3>STOOIP definition</h3>
+<p>The <strong>STOOIP</strong> is estimated in MM bbls with the following formula:</p>
+<p><span class="math display">\[ STOOIP = Area * Thickness * Porosity * ( 1 - Sw ) / Bo * Ct \]</span></p>
+<p>where:</p>
+<ul>
+<li><strong>Area</strong> in Km2</li>
+<li><strong>Thickness</strong> in meters</li>
+<li><strong>Porosity</strong> in fraction</li>
+<li><strong>Water Saturation</strong> in fraction</li>
+<li><strong>Bo</strong> is unitless</li>
+<li><strong>Ct</strong> is a constant of 6.28 to obtains mmbbls as final unit for <strong>STOOIP</strong></li>
+</ul>
+<p><strong>Note</strong>: I have set a seed at the beginning of the code to allow for reproducibility, changing this values we can compare and realize how stable are the simulations when using different entry values.</p>
+<p><br></p>
+</div>
+</div>
+<div id="distributions-used" class="section level2">
+<h2>Distributions used</h2>
+<div id="area" class="section level3">
+<h3>Area</h3>
+<p>The area has been set as an uniform distribution between 5 and 12 km<sup>2</sup>.</p>
+<p><img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
+</div>
+<div id="thickness" class="section level3">
+<h3>Thickness</h3>
+<p>Thickness is defined as a uniform distribution between 8 and 17 meters</p>
+<p><img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-20-1.png" width="672" /></p>
+</div>
+<div id="porosity" class="section level3">
+<h3>Porosity</h3>
+<p>Porosity distribution is normal with a mean of 0.2 and 0.03 standard deviation.</p>
+<p><img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-21-1.png" width="672" /></p>
+</div>
+<div id="water-saturation" class="section level3">
+<h3>Water saturation</h3>
+<p>Water saturation distribution is normal with a mean of 0.22 and 0.04 standard deviation.</p>
+<p><img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-22-1.png" width="672" /></p>
+</div>
+<div id="bo" class="section level3">
+<h3>Bo</h3>
+<p>Bo distribution is normal with a mean of 1.07 and 0.02 standard deviation.</p>
+<p><img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-23-1.png" width="672" /></p>
+</div>
+</div>
+<div id="montecarlo-simulations" class="section level2">
+<h2>Montecarlo simulations</h2>
+<p>All <strong>STOOIP</strong> histograms resulting from the simulation have 3 colored lines, two <strong><span style="color:blue"> Blue </span></strong> lines represent <strong>P10</strong> and <strong>P90</strong> and the <strong><span style="color:Red"> Red </span></strong> line the <strong>P50</strong>.</p>
+<div id="simulations" class="section level3">
+<h3>100 simulations</h3>
+<p><img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
+</div>
+<div id="simulations-1" class="section level3">
+<h3>1,000 simulations</h3>
+<p><img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-25-1.png" width="672" /></p>
+</div>
+<div id="simulations-2" class="section level3">
+<h3>10,000 simulations</h3>
+<p><img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-26-1.png" width="672" /></p>
+</div>
+<div id="simulations-3" class="section level3">
+<h3>100,000 simulations</h3>
+<p><img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-27-1.png" width="672" /></p>
+</div>
+<div id="simulations-4" class="section level3">
+<h3>1,000,000 simulations</h3>
+<p><img src="{{< blogdown/postref >}}index.en_files/figure-html/unnamed-chunk-28-1.png" width="672" /></p>
+</div>
+</div>
+<div id="conclusions" class="section level2">
+<h2>Conclusions</h2>
+<p>There are many conclusions to be made here, however I´will focus on the oints that normally affect my work.</p>
+<ul>
+<li>outliers or <em>min</em> and <em>max</em> values are very conditioned by the sample size, as in general in random populations we have a very small chance of capture the entire range, and this is very evident on these examples.</li>
+<li>the probabilities P10, P50 and P90 stabilize very early on, even with the small dataset. As usual what is good will depend on the impact this estimations will have on future decisions.</li>
+</ul>
+</div>
