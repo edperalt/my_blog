@@ -1,0 +1,173 @@
+---
+title: Analizando mis datos en Garmin
+author: R package build
+date: '2021-02-15'
+slug: []
+categories:
+  - R
+tags:
+  - blog
+  - R
+  - garmin
+  - strava
+  - gps
+Description: ''
+Tags: []
+Categories: []
+DisableComments: no
+---
+
+<script src="{{< blogdown/postref >}}index.en_files/header-attrs/header-attrs.js"></script>
+
+
+<p>Hace mucho tiempo que he querido hacer un “heatmap” con mis datos deportivos, y este proyecto ha sido una de las motivaciones para aprender mas a programar. La siguiente imagen es un heatmap generado con Strava sale automático asi que mi único mérito es haber realizado las actividades con un gps.</p>
+<p><br/></p>
+<p><img src="ed_garmin_plots_files/figure-html/Strava_heat_map_ed.png" /></p>
+<p><br/><br/></p>
+<p>Hace unos de años encontré el repo de <a href="https://github.com/marcusvolz/strava">Marcus Volz</a> donde tiene un app para leer archivos gpx y hacer una serie de gráficos muy interesantes para analizar los datos exportados, en el post Marcus explica como exportar los datos de <a href="https://www.strava.com/login">Strava</a>.</p>
+<p>En mi caso yo tengo mis actividades sincronizadas en muchas bases de datos, y la manera mas sencilla que encontré para bajarlas en formato gpx fué con un script de <a href="https://www.python.org/">python</a> que se llama <a href="https://github.com/pe-st/garmin-connect-export">garmin-connect-export</a>, este me ha exportado los gpx y algunos archivos adicionales como se ve en la siguiente imagen:</p>
+<p><br/></p>
+<p><img src="ed_garmin_plots_files/figure-html/garmin_export.png" /></p>
+<p><br/></p>
+<div id="la-carga-de-datos" class="section level2">
+<h2>La carga de datos</h2>
+<div id="el-archivo-activities.csv" class="section level3">
+<h3>El archivo <em>activities.csv</em></h3>
+<p>Voy a empezar con el archivo <strong>activities.csv</strong>, que tiene la lista de todas las actividades e incluye una larga lista de atributos para describir las actividades. el siguiente bloque muestra la carga y algunos cambios que preparan el código para gráficos mas adelante.</p>
+<p>Hay que considerar que el script de <a href="https://github.com/marcusvolz/strava">Marcus Volz</a> fué hecho ara strava y yo estoy utilizandolo para cargar archivos sacados de Garmin, y aunque el formato es el mismo hay sutilezas difeentes, como el tipo de actividad que <a href="https://www.strava.com/login">Strava</a> lo exporta enel nombre del archivo y <a href="www.garmin.com">Garmin</a> dentro del gpx.</p>
+<p>Dicho esto vamos a comenzar el análisis.</p>
+<p><br/></p>
+<pre class="r"><code>## Cargamos el CSV resumen que exporta Garmin. 
+
+
+
+all_data &lt;- read_csv(&quot;../raw_data/garmin/csv/2021_jan_activities.csv&quot;, 
+    col_types = cols(`Start Time` = col_character(),               # no logré cargar directamente eeste campo como tiempo, asi que lse extraigo las fechas mas abajo
+        `End Time` = col_character(), Description = col_character(), 
+        `Duration (h:m:s)` = col_time(format = &quot;%H:%M:%S&quot;), 
+        `Elapsed Duration (h:m:s)` = col_time(format = &quot;%H:%M:%S&quot;), 
+        `Moving Duration (h:m:s)` = col_time(format = &quot;%H:%M:%S&quot;), 
+        `Average Speed (km/h or min/km)` = col_double(), 
+        `Average Moving Speed (km/h or min/km)` = col_double(), 
+        `Max. Speed (km/h or min/km)` = col_double())) 
+  ## mutate para extraer  el mes y el año como numeros
+  all_data&lt;- all_data %&gt;% 
+   mutate(Año = as.factor(substr(all_data$`Start Time` , start = 1, stop = 4) ),
+          month = as.numeric(substr(all_data$`Start Time`, start = 6, stop = 7)))
+
+## transformamos los meses en texto y los pasamos a factores
+all_data&lt;- all_data %&gt;% 
+   mutate(  mes = as.factor(month.abb[all_data$month])) %&gt;% 
+   select(-month)  
+   
+# reorddenamos los niveles de los factores 
+
+all_data$mes &lt;- factor(all_data$mes, levels = c(&quot;Jan&quot;, &quot;Feb&quot;, &quot;Mar&quot;, &quot;Apr&quot;, &quot;May&quot;, &quot;Jun&quot;, &quot;Jul&quot;, &quot;Aug&quot;, &quot;Sep&quot;, &quot;Oct&quot;, &quot;Nov&quot;, &quot;Dec&quot;) ) </code></pre>
+<p><br/><br/></p>
+<p>Una vez cargado el dataframe vamos a usar la libreria <a href="https://CRAN.R-project.org/package=DT">DT</a> para mostrar los datos en forma de tabla, basicamente muestra todas las actividades que tengo en Garmin hasta finales de Enero del 2021.</p>
+<p><br/><br/></p>
+<p><img src="ed_garmin_plots_files/figure-html/table_data.png" /><!-- --></p>
+<p><br/></p>
+<p>Al revisar la tabla se ven muchos campos interesantes, comenzamos por hacer un gráfico de barras de las <strong>Activity Parent</strong> que representa la jerarquía mas alta en la clasificación de actividades.</p>
+<p><br/></p>
+<p><img src="ed_garmin_plots_files/figure-html/unnamed-chunk-2-1.png" /><!-- --></p>
+<p><br/></p>
+<p>Ninguna sorpresa hasta ahora, no hay secretos sobre mi debilidad por la piscina.</p>
+<p>Garmin tiene otra variable que le da mas granularidad al tipo de deporte ("Activity Type), revisamos cuantas actividades hay y nos damos cuenta que hay algunas repeticiones de nombre tipo <em>Pool Swimming</em> y <em>Swimming</em> , o <em>Other</em> y <em>Uncategorized</em> jpor mencionar un par.</p>
+<p>Aprovechando estos cambios que quiero hacer para racionalizar las categorías, aprovecho de colocarlas en Español.</p>
+<p><br/></p>
+<p><img src="ed_garmin_plots_files/figure-html/unnamed-chunk-4-1.png" /><!-- --></p>
+<p><br/></p>
+<p>Dejamos estratégicamente el <strong>surf / kite surf</strong> para el postureo y rmprzamos a analizar los resultados:</p>
+<ul>
+<li>Garmin, y la industria de los relojes de deporte no tuvieron un reloj para nadar hasta el 2013 :-), yo comencé con un <a href="https://buy.garmin.com/es-ES/ES/p/97287">garmin swim</a><br />
+</li>
+<li>Empecé a incorporar el gimnasio de manera consistente como complemento a mis entrenamientos de natación en el 2016</li>
+<li>El snowboard es una pasión reciente</li>
+</ul>
+<p>Ahora nos concentramos en la natación, y empezamos escribiendo una función para hacer un gráfico de barras por Año</p>
+<p>Para trabajar enfocados en la natación hacemos los siguientes pasos:</p>
+<ul>
+<li>filtramos para enfocarnos solo en Natación (Piscina y Aguas Abiertas)</li>
+<li>eliminamos los años que no tienen datos de natación</li>
+<li>calculamos los totales anuales de <strong>Número de brazadas</strong> (<em>Strokes</em>), <strong>Distancia en Km</strong> (<em>Distance(km)</em>) y <strong>Duración de la actividad</strong> (<em>Duration (h:m:s)</em>) .</li>
+</ul>
+<p>Con los datos listos empezamos con los gráficos, aqui hay que notar 2 cosas:</p>
+<ul>
+<li><p>voy a usar la librería <a href="https://patchwork.data-imaginist.com/">patchwork</a> la acabo de descubrir y ya es una favorita, sirve para combinar gráficos, este no es el ejemplo mas sofisticado pero hace lo que quiero hacer.</p></li>
+<li><p>noten que la columna de duración esta en segundos!!</p></li>
+</ul>
+<p><br/></p>
+<pre class="r"><code>brazadas &lt;-
+   bar_plot(resumen_anual, resumen_anual$Brazadas)+
+      labs(y = &quot;Número de brazadas&quot;,
+        x = &quot;&quot;, 
+        title =  &quot;Brazadas por año&quot;,
+        fill = &quot;&quot;
+        )
+   
+distancia &lt;-
+   bar_plot(resumen_anual, resumen_anual$`Distancia (km)`)+
+   labs(y = &quot;km nadados &quot;,
+        x = &quot;&quot;, 
+        title =  &quot;Km nadados por año&quot;,
+        fill = &quot;&quot;
+        )
+   
+tiempo &lt;-
+   bar_plot(resumen_anual, resumen_anual$Duración /3600) +   # dividimos para tener HORAS
+   labs(y = &quot;horas nadadas &quot;,
+        x = &quot;&quot;, 
+        title =  &quot;Horas nadadas por año&quot;,
+        fill = &quot;&quot;
+        )   
+
+## aqui usamos patchwork
+
+brazadas + distancia + tiempo</code></pre>
+<p><br/><br/></p>
+<p><img src="ed_garmin_plots_files/figure-html/unnamed-chunk-7-1.png" /><!-- --></p>
+<p><br/><br/></p>
+<p>Es interesante analizar estos resultados porque aunque sufren de errores son tantos que permiten leer o recordar algunas situaciones:</p>
+<ul>
+<li><p>en el 2014 nos preparamos para el mundial master, y se me dañó el reloj, ese año coloque manualmente muchos de los entrenamientos, de ahi el desface en brazadas.</p></li>
+<li><p>En 2019 hicimos el circuito de aguas abiertas, por lo que empezamos a nadar mas.</p></li>
+<li><p>2020 :-( aunque en España tener la licencia nacional de la federación nos permiti´o volver a entrenar un poco antes.</p></li>
+</ul>
+<p>Que cosas agregan ruido a los gráficos??</p>
+<ul>
+<li><p>En tiempo el hecho que algunas veces se me olvida apagar el reloj :-)</p></li>
+<li><p>Hay un mínimo de veces que lo he dejado en casa,</p></li>
+<li><p>Creo que recuerdo dos veces quedarme sin batería.</p></li>
+<li><p>Es tecnología relativamente reciente, el primer reloj que tuve para nadar lo conseguí en el 2013</p></li>
+<li><p>Las competiciones, la <a href="http://www.fina.org/">FINA</a>, que es el organismo que rige la mayoría de las competiciones en las que participo no permite los relojes (son medio locos), y aun cuando en piscina son relativamente pocas brazadas, en Aguas Abiertas es diferente cuando empezamos a a participar en algún circuito con varias carreras al año como mi 2019, La verdad que las razón principal de esta prohibición radica en minimizar accidentes ya que es fácil causar daño a otro nadador cuando llevas un reloj y chocas involuntariamente.</p></li>
+<li><p>Número de brazadas se afecta porque en ocasiones dejo la opcion “drill mode”que no cuenta brazadas , solo tiempo y distancia. Especialmente los dias de entrenamiento de velocidad donde el reloj molesta un poco.</p></li>
+</ul>
+<p><br/></p>
+</div>
+</div>
+<div id="vamos-a-los-gpx-y-los-mapas" class="section level2">
+<h2>Vamos a los GPX y los mapas</h2>
+<p>Cambiamos objetivo y cargamos todos los gpx que tenemos para trabajar con mapas,</p>
+<p>En este primer bloque usamos el script de <a href="https://github.com/marcusvolz/strava">Marcus Volz</a> para leer los gpx, aqui los salvo como *.RDS para leerlos mas rápidamente.</p>
+<p>Empezamos por mi gráfico favorito se la libreria de <a href="https://github.com/marcusvolz/strava">Marcus Volz</a>, que hace un cuadro de todas las trazas o recorridos de las actividades disponibles, en este caso son desde 2011 hasta finales de Enero 2011 .En vez de usar la función de su paquete directamente, solo he tomado la idea.</p>
+<p>En este caso organizo las trazas por fecha y he coloreado por año:</p>
+<p><br/></p>
+<p><img src="ed_garmin_plots_files/figure-html/unnamed-chunk-8-1.png" /><!-- --></p>
+<p><br/></p>
+<p>El siguiente gráfico muestra las horas a las que he hecho ejercicio, se ve claramente la influencia de unos años en Bogotá , ya que la hora es la de España.</p>
+<p><br/></p>
+<p><img src="ed_garmin_plots_files/figure-html/unnamed-chunk-9-1.png" /><!-- --></p>
+<p><br/></p>
+<p>Ahora con los mapas voy a usar la libreria <a href="https://journal.r-project.org/archive/2013-1/kahle-wickham.pdf">ggmap</a> que permite utilizar varios servicios de mapas, aqui estoy utilizando <a href="http://maps.stamen.com/#watercolor">Stamen</a>.
+<br/></p>
+<p>El siguiente es un heatmap de todas las actividades que tengo grabadas con el gps en España, los colores representan el año de la aventura.</p>
+<p><img src="ed_garmin_plots_files/figure-html/unnamed-chunk-10-1.png" /><!-- --></p>
+<p>Ahora con un zoom en Madrid y separando los mapas por año.</p>
+<p><br/></p>
+<p><img src="ed_garmin_plots_files/figure-html/unnamed-chunk-11-1.png" /><!-- --></p>
+<p><br/></p>
+<p>Finalmente un mapa del mundo, pero hay que notar que <a href="http://maps.stamen.com/#watercolor">Stamen</a> no cubre todo el mundo, para un mapa del mundo vamos a usar <a href="https://cran.r-project.org/package=sf">sf</a> y <a href="https://cran.r-project.org/web/packages/rnaturalearth/vignettes/rnaturalearth.html#:~:text=rnaturalearth%20is%20a%20data%20package,country%20and%20other%20administrative%20boundaries">rnaturalearth</a> que tiene los polígonos de los paises del mundo</p>
+<p><br/></p>
+<p><img src="ed_garmin_plots_files/figure-html/unnamed-chunk-13-1.png" /><!-- --></p>
+</div>
